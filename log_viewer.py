@@ -205,6 +205,7 @@ class SeleniumRecorderApp(QWidget):
             elif pause_match:
                 seconds = pause_match.group(1)
                 selenium_script.append(f'time.sleep({seconds})')
+                selenium_script.append(f'')
 
         selenium_script.append("time.sleep(1000)")
         selenium_script.append("driver.quit()")
