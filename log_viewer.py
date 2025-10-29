@@ -43,8 +43,10 @@ class SeleniumRecorderApp(QWidget):
 
         self.record_btn = QPushButton("Record")
         self.pause_btn = QPushButton("Pause")
+        self.send_key_btn = QPushButton("Send Key")
         self.slider_label = QLabel("Implicit Pause: 1 sec")
         self.implicit_slider = QSlider(Qt.Horizontal)
+
         self.implicit_slider.setMinimum(1)
         self.implicit_slider.setMaximum(10)
         self.implicit_slider.setValue(1)
@@ -57,6 +59,7 @@ class SeleniumRecorderApp(QWidget):
 
         button_layout.addWidget(self.record_btn)
         button_layout.addWidget(self.pause_btn)
+        button_layout.addWidget(self.send_key_btn)
         button_layout.addWidget(self.slider_label)
         button_layout.addWidget(self.implicit_slider)
         button_layout.addWidget(self.implicit_pause_btn)
@@ -74,6 +77,7 @@ class SeleniumRecorderApp(QWidget):
         self.remove_line_btn.clicked.connect(self.remove_selected_line)
         self.add_comment_btn.clicked.connect(self.show_comment_dialog)
         self.submit_btn.clicked.connect(self.convert_log_to_selenium_code)
+        self.send_key_btn.clicked.connect(self.send_key_action)
 
         self.click_count = 0
         self.is_recording = False
@@ -82,6 +86,29 @@ class SeleniumRecorderApp(QWidget):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_log)
         self.timer.start(1000)
+
+    
+    def send_key_action(self):
+        selected_items = self.log_list.selectedItems()
+        if not selected_items:
+            return
+
+        item = selected_items[0]
+        original_text = item.text()
+
+        if "[R] ID:" in original_text or "[R] XPath:" in original_text:
+            dialog = CommentDialog()
+            dialog.label.setText("Enter key to send:")
+            dialog.text_field.setText("")  # Clear previous text
+            if dialog.exec():
+                key = dialog.get_comment()
+                if key:
+                    updated_text = f"{original_text}'->'{key}"
+                    item.setText(updated_text)
+        else:
+            # Optional: show a message box if the selected line isn't a valid record
+            pass
+
 
     def update_slider_label(self, value):
         self.slider_label.setText(f"Implicit Pause: {value} sec")
@@ -151,11 +178,22 @@ class SeleniumRecorderApp(QWidget):
 
         for i in range(self.log_list.count()):
             line = self.log_list.item(i).text()
+            send_keys_match = re.match(r"\[\d+\] \[R\] (ID|XPath): (.+?)'->'(.*?)$", line)
             record_match = re.match(r"\[\d+\] \[R\] (ID|XPath): (.+)", line)
             comment_match = re.match(r'\[\d+\] \[C\] "(.*)"', line)
             pause_match = re.match(r"\[\d+\] \[P\] (\d+) sec wait is added", line)
 
-            if record_match:
+            if send_keys_match:
+                locator_type, locator_value, key = send_keys_match.groups()
+                if locator_type == "ID":
+                    selenium_script.append(
+                        f'wait.until(EC.presence_of_element_located((By.ID, "{locator_value}"))).send_keys({key})'
+                    )
+                else:
+                    selenium_script.append(
+                        f'wait.until(EC.presence_of_element_located((By.XPATH, "{locator_value}"))).send_keys({key})'
+                    )
+            elif record_match:
                 locator_type, locator_value = record_match.groups()
                 if locator_type == "ID":
                     selenium_script.append(f'wait.until(EC.element_to_be_clickable((By.ID, "{locator_value}"))).click()')
