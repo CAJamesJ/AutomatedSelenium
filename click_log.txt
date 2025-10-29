@@ -1,0 +1,10 @@
+ID: details-button
+ID: proceed-link
+ID: loginForm:loginName
+ID: loginForm:inputPassword
+ID: loginForm:loginName
+ID: loginForm:inputPassword
+ID: loginForm:loginName
+ID: loginForm:inputPassword
+ID: loginForm:loginName
+ID: loginForm:inputPassword

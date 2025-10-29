@@ -73,6 +73,7 @@ class SeleniumRecorderApp(QWidget):
         self.implicit_pause_btn.clicked.connect(self.add_implicit_pause)
         self.remove_line_btn.clicked.connect(self.remove_selected_line)
         self.add_comment_btn.clicked.connect(self.show_comment_dialog)
+        self.submit_btn.clicked.connect(self.convert_log_to_selenium_code)
 
         self.click_count = 0
         self.is_recording = False
@@ -130,6 +131,48 @@ class SeleniumRecorderApp(QWidget):
             self.log_list.addItem(f"[{self.click_count}] [R] {line.strip()}")
 
         self.last_line_count = len(lines)
+    
+    def convert_log_to_selenium_code(self):
+        import re
+
+        selenium_script = [
+            "from selenium import webdriver",
+            "from selenium.webdriver.common.by import By",
+            "from selenium.webdriver.support.ui import WebDriverWait",
+            "from selenium.webdriver.support import expected_conditions as EC",
+            "import time",
+            "",
+            "driver = webdriver.Edge()",
+            "driver.maximize_window()",
+            "driver.get(\"https://www.google.com\")  # Replace with your target URL",
+            "wait = WebDriverWait(driver, 10)",
+            ""
+        ]
+
+        for i in range(self.log_list.count()):
+            line = self.log_list.item(i).text()
+            record_match = re.match(r"\[\d+\] \[R\] (ID|XPath): (.+)", line)
+            comment_match = re.match(r'\[\d+\] \[C\] "(.*)"', line)
+            pause_match = re.match(r"\[\d+\] \[P\] (\d+) sec wait is added", line)
+
+            if record_match:
+                locator_type, locator_value = record_match.groups()
+                if locator_type == "ID":
+                    selenium_script.append(f'wait.until(EC.element_to_be_clickable((By.ID, "{locator_value}"))).click()')
+                else:
+                    selenium_script.append(f'wait.until(EC.element_to_be_clickable((By.XPATH, "{locator_value}"))).click()')
+            elif comment_match:
+                comment = comment_match.group(1)
+                selenium_script.append(f'# Comment: {comment}')
+            elif pause_match:
+                seconds = pause_match.group(1)
+                selenium_script.append(f'time.sleep({seconds})')
+
+        selenium_script.append("time.sleep(1000)")
+        selenium_script.append("driver.quit()")
+
+        with open("generated_selenium_script.py", "w", encoding="utf-8") as f:
+            f.write("\n".join(selenium_script))
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
